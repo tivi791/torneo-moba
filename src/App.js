@@ -6,11 +6,12 @@ import { doc, getDoc } from 'firebase/firestore';
 import CrearEquipo from './components/CrearEquipo';
 import AdminPanel from './components/AdminPanel';
 import LoginRegistro from './components/LoginRegistro';
-import TorneosDisponibles from './components/TorneosDisponibles'; // Importa el nuevo componente
+import TorneosDisponibles from './components/TorneosDisponibles';
 
 function App() {
   const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
+  const [equipoId, setEquipoId] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -25,14 +26,21 @@ function App() {
           } else {
             setUsuario({ ...user, role: 'usuario' });
           }
+
+          // Obtener equipo asociado al usuario (si existe)
+          const equiposRef = collection(db, 'equipos');
+          const equiposSnap = await getDocs(equiposRef);
+          const equipoDelUsuario = equiposSnap.docs.find(doc => doc.data().ownerId === user.uid);
+          setEquipoId(equipoDelUsuario ? equipoDelUsuario.id : null);
+
         } catch (error) {
-          console.error("Error al obtener rol:", error);
+          console.error("Error al obtener datos:", error);
           setUsuario({ ...user, role: 'usuario' });
         }
       } else {
         setUsuario(null);
+        setEquipoId(null);
       }
-
       setCargando(false);
     });
 
@@ -50,14 +58,17 @@ function App() {
           <p>Bienvenido: <strong>{usuario.email}</strong> ({usuario.role})</p>
           <button onClick={() => signOut(auth)}>Cerrar sesión</button>
           <hr />
-          {usuario.role === "admin" && (
-            <AdminPanel />
-          )}
+
+          {usuario.role === "admin" && <AdminPanel />}
+
           {usuario.role !== "admin" && (
             <>
               <CrearEquipo />
-              <hr />
-              <TorneosDisponibles />
+              {equipoId ? (
+                <TorneosDisponibles equipoId={equipoId} />
+              ) : (
+                <p>🔒 Crea un equipo primero para poder inscribirte a torneos.</p>
+              )}
             </>
           )}
         </>
