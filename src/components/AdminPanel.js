@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import CrearTorneo from './CrearTorneo'; // Importa el componente
 
 function AdminPanel() {
   const [equipos, setEquipos] = useState([]);
@@ -31,6 +32,9 @@ function AdminPanel() {
   return (
     <div>
       <h2>Panel de Administración</h2>
+
+      <CrearTorneo /> {/* Aquí mostramos el formulario para crear torneos */}
+
       <p>Aquí podrás ver todos los equipos registrados:</p>
       {equipos.length === 0 ? (
         <p>No hay equipos registrados aún.</p>
