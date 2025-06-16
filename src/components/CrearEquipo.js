@@ -1,25 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { db, auth } from '../firebase';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  updateDoc,
-  doc,
-  addDoc,
-  Timestamp,
-} from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 
 function CrearEquipo() {
-  const [equipoExistente, setEquipoExistente] = useState(null);
+  const [equipo, setEquipo] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [nombreEquipo, setNombreEquipo] = useState('');
-  const [nombreJugador, setNombreJugador] = useState('');
+  const [nickname, setNickname] = useState('');
+  const [jugadorUid, setJugadorUid] = useState('');
   const [mensaje, setMensaje] = useState('');
 
   useEffect(() => {
-    const verificarEquipo = async () => {
+    async function cargarEquipo() {
       const user = auth.currentUser;
       if (!user) return;
 
@@ -27,84 +19,63 @@ function CrearEquipo() {
       const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
-        const docSnap = querySnapshot.docs[0];
-        setEquipoExistente({
-          id: docSnap.id,
-          ...docSnap.data(),
-        });
+        setEquipo({ id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() });
       }
-
       setCargando(false);
-    };
-
-    verificarEquipo();
+    }
+    cargarEquipo();
   }, []);
 
   const crearEquipo = async (e) => {
     e.preventDefault();
+    if (!nombreEquipo.trim()) return;
+
     const user = auth.currentUser;
     if (!user) return;
 
     try {
       const nuevoEquipo = {
-        nombre: nombreEquipo,
+        nombre: nombreEquipo.trim(),
         creadoPorUID: user.uid,
         jugadores: [],
         creadoEn: Timestamp.now(),
       };
-
       const docRef = await addDoc(collection(db, 'equipos'), nuevoEquipo);
-
-      setEquipoExistente({ id: docRef.id, ...nuevoEquipo });
+      setEquipo({ id: docRef.id, ...nuevoEquipo });
       setNombreEquipo('');
-      setMensaje('✅ Equipo creado correctamente.');
+      setMensaje('Equipo creado con éxito');
     } catch (error) {
-      console.error('Error al crear equipo:', error);
-      setMensaje('❌ Error al crear equipo.');
+      setMensaje('Error al crear equipo: ' + error.message);
     }
   };
 
   const agregarJugador = async (e) => {
     e.preventDefault();
-    const user = auth.currentUser;
-    if (!user || !equipoExistente) return;
-
-    const jugadoresActuales = equipoExistente.jugadores || [];
-
-    if (jugadoresActuales.length >= 7) {
-      setMensaje('⚠️ Tu equipo ya tiene 7 jugadores.');
+    if (!nickname.trim() || !jugadorUid.trim()) {
+      setMensaje('Debes ingresar nickname y UID del jugador');
       return;
     }
 
-    const yaExiste = jugadoresActuales.some(
-      (j) => j.nickname.toLowerCase() === nombreJugador.toLowerCase()
-    );
-    if (yaExiste) {
-      setMensaje('⚠️ Ese nickname ya fue agregado.');
+    if (equipo.jugadores.length >= 7) {
+      setMensaje('Ya tienes 7 jugadores');
+      return;
+    }
+
+    if (equipo.jugadores.find(j => j.uid === jugadorUid.trim())) {
+      setMensaje('Este UID ya está agregado');
       return;
     }
 
     try {
-      const equipoRef = doc(db, 'equipos', equipoExistente.id);
-      const nuevoJugador = {
-        nickname: nombreJugador,
-        uid: user.uid,
-      };
-
-      await updateDoc(equipoRef, {
-        jugadores: [...jugadoresActuales, nuevoJugador],
-      });
-
-      setEquipoExistente((prev) => ({
-        ...prev,
-        jugadores: [...jugadoresActuales, nuevoJugador],
-      }));
-
-      setNombreJugador('');
-      setMensaje('✅ Jugador agregado correctamente.');
+      const equipoRef = doc(db, 'equipos', equipo.id);
+      const nuevosJugadores = [...equipo.jugadores, { nickname: nickname.trim(), uid: jugadorUid.trim() }];
+      await updateDoc(equipoRef, { jugadores: nuevosJugadores });
+      setEquipo({ ...equipo, jugadores: nuevosJugadores });
+      setNickname('');
+      setJugadorUid('');
+      setMensaje('Jugador agregado con éxito');
     } catch (error) {
-      console.error('Error al agregar jugador:', error);
-      setMensaje('❌ Error al agregar jugador.');
+      setMensaje('Error al agregar jugador: ' + error.message);
     }
   };
 
@@ -112,43 +83,48 @@ function CrearEquipo() {
 
   return (
     <div>
-      {equipoExistente ? (
+      {equipo ? (
         <>
-          <h3>Mi equipo: {equipoExistente.nombre}</h3>
-          <p><strong>Jugadores actuales:</strong></p>
+          <h3>Equipo: {equipo.nombre}</h3>
           <ul>
-            {(equipoExistente.jugadores || []).map((j, i) => (
-              <li key={i}>{j.nickname}</li>
+            {equipo.jugadores.map((j, i) => (
+              <li key={i}>{j.nickname} - UID: {j.uid}</li>
             ))}
           </ul>
-          {equipoExistente.jugadores.length < 7 && (
+          {equipo.jugadores.length < 7 && (
             <form onSubmit={agregarJugador}>
               <input
                 type="text"
-                placeholder="Nombre del jugador"
-                value={nombreJugador}
-                onChange={(e) => setNombreJugador(e.target.value)}
+                placeholder="Nickname del jugador"
+                value={nickname}
+                onChange={e => setNickname(e.target.value)}
+                required
+              />
+              <input
+                type="text"
+                placeholder="UID del jugador (del juego)"
+                value={jugadorUid}
+                onChange={e => setJugadorUid(e.target.value)}
                 required
               />
               <button type="submit">Agregar jugador</button>
             </form>
           )}
-          {mensaje && <p>{mensaje}</p>}
         </>
       ) : (
         <form onSubmit={crearEquipo}>
-          <h3>Crear un equipo</h3>
+          <h3>Crea tu equipo</h3>
           <input
             type="text"
             placeholder="Nombre del equipo"
             value={nombreEquipo}
-            onChange={(e) => setNombreEquipo(e.target.value)}
+            onChange={e => setNombreEquipo(e.target.value)}
             required
           />
           <button type="submit">Crear equipo</button>
-          {mensaje && <p>{mensaje}</p>}
         </form>
       )}
+      {mensaje && <p>{mensaje}</p>}
     </div>
   );
 }
