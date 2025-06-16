@@ -1,66 +1,67 @@
 import React, { useEffect, useState } from 'react';
-import { auth, db } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 
-import CrearEquipo from './components/CrearEquipo';
-import AdminPanel from './components/AdminPanel';
-import LoginRegistro from './components/LoginRegistro';
-
-function App() {
-  const [usuario, setUsuario] = useState(null);
+function AdminPanel() {
+  const [equipos, setEquipos] = useState([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const docRef = doc(db, "users", user.uid);
-          const docSnap = await getDoc(docRef);
-
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            setUsuario({ ...user, role: data.role || 'usuario' });
-          } else {
-            setUsuario({ ...user, role: 'usuario' });
-          }
-        } catch (error) {
-          console.error("Error al obtener rol:", error);
-          setUsuario({ ...user, role: 'usuario' });
-        }
-      } else {
-        setUsuario(null);
+    async function fetchEquipos() {
+      setCargando(true);
+      try {
+        const q = query(collection(db, 'equipos'), orderBy('creadoEn', 'desc'));
+        const querySnapshot = await getDocs(q);
+        const listaEquipos = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setEquipos(listaEquipos);
+      } catch (error) {
+        console.error("Error al cargar equipos:", error);
       }
       setCargando(false);
-    });
+    }
 
-    return () => unsubscribe();
+    fetchEquipos();
   }, []);
 
-  if (cargando) return <p>Cargando...</p>;
+  if (cargando) return <p>Cargando equipos...</p>;
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial' }}>
-      <h1>Plataforma de Torneos MOBA</h1>
-
-      {usuario ? (
-        <>
-          <p>Bienvenido: <strong>{usuario.email}</strong> ({usuario.role})</p>
-          <button onClick={() => signOut(auth)}>Cerrar sesión</button>
-          <hr />
-          {usuario.role === "admin" && (
-            <div>
-              <AdminPanel />
-              <hr />
-            </div>
-          )}
-          <CrearEquipo />
-        </>
+    <div>
+      <h2>Panel de Administración</h2>
+      <h3>Equipos registrados</h3>
+      {equipos.length === 0 ? (
+        <p>No hay equipos registrados aún.</p>
       ) : (
-        <LoginRegistro />
+        <table border="1" cellPadding="8" style={{ borderCollapse: 'collapse', width: '100%' }}>
+          <thead>
+            <tr>
+              <th>Nombre del Equipo</th>
+              <th>Jugadores (Emails)</th>
+              <th>Registrado el</th>
+            </tr>
+          </thead>
+          <tbody>
+            {equipos.map(equipo => (
+              <tr key={equipo.id}>
+                <td>{equipo.nombre}</td>
+                <td>
+                  <ul style={{ paddingLeft: '20px', margin: 0 }}>
+                    {equipo.jugadores.map((jugador, i) => (
+                      <li key={i}>{jugador}</li>
+                    ))}
+                  </ul>
+                </td>
+                <td>{equipo.creadoEn?.toDate().toLocaleString() || 'Sin fecha'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
 }
 
-export default App;
+export default AdminPanel;
