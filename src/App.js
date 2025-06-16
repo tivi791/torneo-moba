@@ -6,6 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import CrearEquipo from './components/CrearEquipo';
 import AdminPanel from './components/AdminPanel';
 import LoginRegistro from './components/LoginRegistro';
+import TorneosDisponibles from './components/TorneosDisponibles'; // Importa el nuevo componente
 
 function App() {
   const [usuario, setUsuario] = useState(null);
@@ -52,7 +53,13 @@ function App() {
           {usuario.role === "admin" && (
             <AdminPanel />
           )}
-          <CrearEquipo />
+          {usuario.role !== "admin" && (
+            <>
+              <CrearEquipo />
+              <hr />
+              <TorneosDisponibles />
+            </>
+          )}
         </>
       ) : (
         <LoginRegistro />
