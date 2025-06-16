@@ -1,64 +1,75 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../firebase';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { auth, db } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
-function AdminPanel() {
-  const [equipos, setEquipos] = useState([]);
+import CrearEquipo from './components/CrearEquipo';
+import AdminPanel from './components/AdminPanel';
+import ListaEquipos from './components/ListaEquipos';
+import VistaEquipos from './components/VistaEquipos';
+import LoginRegistro from './components/LoginRegistro';
+
+function App() {
+  const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    async function fetchEquipos() {
-      setCargando(true);
-      try {
-        const q = query(collection(db, 'equipos'), orderBy('creadoEn', 'desc'));
-        const querySnapshot = await getDocs(q);
-        const listaEquipos = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setEquipos(listaEquipos);
-      } catch (error) {
-        console.error("Error al cargar equipos:", error);
-      }
-      setCargando(false);
-    }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const docRef = doc(db, "users", user.uid);
+          const docSnap = await getDoc(docRef);
 
-    fetchEquipos();
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setUsuario({ ...user, role: data.role || 'usuario' });
+          } else {
+            setUsuario({ ...user, role: 'usuario' });
+          }
+        } catch (error) {
+          console.error("Error al obtener rol:", error);
+          setUsuario({ ...user, role: 'usuario' });
+        }
+      } else {
+        setUsuario(null);
+      }
+
+      setCargando(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  if (cargando) return <p>Cargando equipos...</p>;
+  if (cargando) return <p>Cargando...</p>;
 
   return (
-  <div style={{ padding: '20px', fontFamily: 'Arial' }}>
-    <h1>Plataforma de Torneos MOBA</h1>
+    <div style={{ padding: '20px', fontFamily: 'Arial' }}>
+      <h1>Plataforma de Torneos MOBA</h1>
 
-    {usuario ? (
-      <>
-        <p>Bienvenido: <strong>{usuario.email}</strong> ({usuario.role})</p>
-        <button onClick={() => signOut(auth)}>Cerrar sesión</button>
-        <hr />
-        
-        {usuario.role === "admin" && (
-          <div>
-            <AdminPanel />
-            <CrearEquipo />
-            <ListaEquipos />
-            <hr />
-          </div>
-        )}
+      {usuario ? (
+        <>
+          <p>Bienvenido: <strong>{usuario.email}</strong> ({usuario.role})</p>
+          <button onClick={() => signOut(auth)}>Cerrar sesión</button>
+          <hr />
 
-        {usuario.role !== "admin" && (
-          <>
-            <CrearEquipo />
-          </>
-        )}
-      </>
-    ) : (
-      <LoginRegistro />
-    )}
-  </div>
-);
-
+          {usuario.role === "admin" ? (
+            <>
+              <AdminPanel />
+              <CrearEquipo />
+              <ListaEquipos />
+            </>
+          ) : (
+            <>
+              <CrearEquipo />
+              <VistaEquipos />
+            </>
+          )}
+        </>
+      ) : (
+        <LoginRegistro />
+      )}
+    </div>
+  );
 }
 
-export default AdminPanel;
+export default App;
