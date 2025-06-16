@@ -7,11 +7,14 @@ import {
   getDocs,
   updateDoc,
   doc,
+  addDoc,
+  Timestamp,
 } from 'firebase/firestore';
 
 function CrearEquipo() {
   const [equipoExistente, setEquipoExistente] = useState(null);
   const [cargando, setCargando] = useState(true);
+  const [nombreEquipo, setNombreEquipo] = useState('');
   const [nombreJugador, setNombreJugador] = useState('');
   const [mensaje, setMensaje] = useState('');
 
@@ -37,53 +40,73 @@ function CrearEquipo() {
     verificarEquipo();
   }, []);
 
+  const crearEquipo = async (e) => {
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const nuevoEquipo = {
+        nombre: nombreEquipo,
+        creadoPorUID: user.uid,
+        jugadores: [],
+        creadoEn: Timestamp.now(),
+      };
+
+      const docRef = await addDoc(collection(db, 'equipos'), nuevoEquipo);
+
+      setEquipoExistente({ id: docRef.id, ...nuevoEquipo });
+      setNombreEquipo('');
+      setMensaje('✅ Equipo creado correctamente.');
+    } catch (error) {
+      console.error('Error al crear equipo:', error);
+      setMensaje('❌ Error al crear equipo.');
+    }
+  };
+
   const agregarJugador = async (e) => {
-  e.preventDefault();
-  const user = auth.currentUser;
-  if (!user || !equipoExistente) return;
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user || !equipoExistente) return;
 
-  const jugadoresActuales = equipoExistente.jugadores || [];
+    const jugadoresActuales = equipoExistente.jugadores || [];
 
-  // 🔴 Validar máximo 7 jugadores
-  if (jugadoresActuales.length >= 7) {
-    setMensaje('⚠️ Tu equipo ya tiene 7 jugadores. No puedes agregar más.');
-    return;
-  }
+    if (jugadoresActuales.length >= 7) {
+      setMensaje('⚠️ Tu equipo ya tiene 7 jugadores.');
+      return;
+    }
 
-  // 🔴 Validar duplicados
-  const yaExiste = jugadoresActuales.some(
-    (j) => j.nickname.toLowerCase() === nombreJugador.toLowerCase()
-  );
-  if (yaExiste) {
-    setMensaje('⚠️ Ese nickname ya fue agregado.');
-    return;
-  }
+    const yaExiste = jugadoresActuales.some(
+      (j) => j.nickname.toLowerCase() === nombreJugador.toLowerCase()
+    );
+    if (yaExiste) {
+      setMensaje('⚠️ Ese nickname ya fue agregado.');
+      return;
+    }
 
-  try {
-    const equipoRef = doc(db, 'equipos', equipoExistente.id);
+    try {
+      const equipoRef = doc(db, 'equipos', equipoExistente.id);
+      const nuevoJugador = {
+        nickname: nombreJugador,
+        uid: user.uid,
+      };
 
-    const nuevoJugador = {
-      nickname: nombreJugador,
-      uid: user.uid, // opcional, puedes quitar si no es necesario
-    };
+      await updateDoc(equipoRef, {
+        jugadores: [...jugadoresActuales, nuevoJugador],
+      });
 
-    await updateDoc(equipoRef, {
-      jugadores: [...jugadoresActuales, nuevoJugador],
-    });
+      setEquipoExistente((prev) => ({
+        ...prev,
+        jugadores: [...jugadoresActuales, nuevoJugador],
+      }));
 
-    setEquipoExistente((prev) => ({
-      ...prev,
-      jugadores: [...jugadoresActuales, nuevoJugador],
-    }));
-
-    setNombreJugador('');
-    setMensaje('✅ Jugador agregado correctamente.');
-  } catch (error) {
-    console.error('Error al agregar jugador:', error);
-    setMensaje('❌ Error al agregar jugador.');
-  }
-};
-
+      setNombreJugador('');
+      setMensaje('✅ Jugador agregado correctamente.');
+    } catch (error) {
+      console.error('Error al agregar jugador:', error);
+      setMensaje('❌ Error al agregar jugador.');
+    }
+  };
 
   if (cargando) return <p>Cargando...</p>;
 
@@ -98,20 +121,33 @@ function CrearEquipo() {
               <li key={i}>{j.nickname}</li>
             ))}
           </ul>
-          <form onSubmit={agregarJugador}>
-            <input
-              type="text"
-              placeholder="Nombre del jugador"
-              value={nombreJugador}
-              onChange={(e) => setNombreJugador(e.target.value)}
-              required
-            />
-            <button type="submit">Agregar jugador</button>
-          </form>
+          {equipoExistente.jugadores.length < 7 && (
+            <form onSubmit={agregarJugador}>
+              <input
+                type="text"
+                placeholder="Nombre del jugador"
+                value={nombreJugador}
+                onChange={(e) => setNombreJugador(e.target.value)}
+                required
+              />
+              <button type="submit">Agregar jugador</button>
+            </form>
+          )}
           {mensaje && <p>{mensaje}</p>}
         </>
       ) : (
-        <p>🔒 Solo puedes agregar jugadores si ya creaste un equipo.</p>
+        <form onSubmit={crearEquipo}>
+          <h3>Crear un equipo</h3>
+          <input
+            type="text"
+            placeholder="Nombre del equipo"
+            value={nombreEquipo}
+            onChange={(e) => setNombreEquipo(e.target.value)}
+            required
+          />
+          <button type="submit">Crear equipo</button>
+          {mensaje && <p>{mensaje}</p>}
+        </form>
       )}
     </div>
   );
