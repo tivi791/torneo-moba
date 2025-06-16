@@ -8,19 +8,19 @@ function AdminPanel() {
 
   useEffect(() => {
     async function fetchEquipos() {
+      setCargando(true);
       try {
         const q = query(collection(db, 'equipos'), orderBy('creadoEn', 'desc'));
         const querySnapshot = await getDocs(q);
-        const lista = querySnapshot.docs.map(doc => ({
+        const listaEquipos = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         }));
-        setEquipos(lista);
+        setEquipos(listaEquipos);
       } catch (error) {
         console.error("Error al cargar equipos:", error);
-      } finally {
-        setCargando(false);
       }
+      setCargando(false);
     }
 
     fetchEquipos();
@@ -31,24 +31,19 @@ function AdminPanel() {
   return (
     <div>
       <h2>Panel de Administración</h2>
+      <p>Aquí podrás ver todos los equipos registrados:</p>
       {equipos.length === 0 ? (
         <p>No hay equipos registrados aún.</p>
       ) : (
         equipos.map((equipo) => (
-          <div key={equipo.id} style={{ border: '1px solid #ccc', padding: '10px', margin: '10px 0' }}>
-            <h3>🔹 {equipo.nombre}</h3>
-            <p><strong>Registrado por:</strong> {equipo.creadoPor}</p>
+          <div key={equipo.id} style={{ border: '1px solid #ccc', marginBottom: '15px', padding: '10px' }}>
+            <h3>{equipo.nombre}</h3>
+            <p><strong>Capitán:</strong> {equipo.capitan}</p>
             <p><strong>Jugadores:</strong></p>
             <ul>
-              {equipo.jugadores && equipo.jugadores.length > 0 ? (
-                equipo.jugadores.map((j, i) => (
-                  <li key={i}>
-                    {j.nickname} {j.uid ? `(UID: ${j.uid})` : ''}
-                  </li>
-                ))
-              ) : (
-                <li>Sin jugadores registrados.</li>
-              )}
+              {(equipo.jugadores || []).map((jugador, index) => (
+                <li key={index}>{jugador.nickname}</li>
+              ))}
             </ul>
           </div>
         ))
