@@ -4,8 +4,8 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 
 import CrearEquipo from './components/CrearEquipo';
-import AdminPanel from './components/AdminPanel'; // crea este componente luego
-import LoginRegistro from './components/LoginRegistro'; // también crea este luego
+import AdminPanel from './components/AdminPanel';
+import LoginRegistro from './components/LoginRegistro';
 
 function App() {
   const [usuario, setUsuario] = useState(null);
@@ -14,19 +14,24 @@ function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Traer datos del rol desde Firestore
-        const docRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(docRef);
+        try {
+          const docRef = doc(db, "users", user.uid);
+          const docSnap = await getDoc(docRef);
 
-        if (docSnap.exists()) {
-          setUsuario({ ...user, role: docSnap.data().role });
-        } else {
-          // Si no existe documento, rol por defecto
-          setUsuario({ ...user, role: "usuario" });
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setUsuario({ ...user, role: data.role || 'usuario' });
+          } else {
+            setUsuario({ ...user, role: 'usuario' });
+          }
+        } catch (error) {
+          console.error("Error al obtener rol:", error);
+          setUsuario({ ...user, role: 'usuario' });
         }
       } else {
         setUsuario(null);
       }
+
       setCargando(false);
     });
 
@@ -36,7 +41,7 @@ function App() {
   if (cargando) return <p>Cargando...</p>;
 
   return (
-    <div style={{ padding: 20, fontFamily: 'Arial' }}>
+    <div style={{ padding: '20px', fontFamily: 'Arial' }}>
       <h1>Plataforma de Torneos MOBA</h1>
 
       {usuario ? (
@@ -44,7 +49,13 @@ function App() {
           <p>Bienvenido: <strong>{usuario.email}</strong> ({usuario.role})</p>
           <button onClick={() => signOut(auth)}>Cerrar sesión</button>
           <hr />
-          {usuario.role === "admin" ? <AdminPanel /> : <CrearEquipo />}
+          {usuario.role === "admin" && (
+            <div>
+              <AdminPanel />
+              <hr />
+            </div>
+          )}
+          <CrearEquipo />
         </>
       ) : (
         <LoginRegistro />
