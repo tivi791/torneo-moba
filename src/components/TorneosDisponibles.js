@@ -28,8 +28,7 @@ export default function TorneosDisponibles({ equipoId }) {
   const inscribirEquipo = async (torneoId) => {
     try {
       const torneoRef = doc(db, 'torneos', torneoId);
-      const torneoSnap = await getDoc(torneoRef);  // <--- CORRECCIÓN
-
+      const torneoSnap = await getDoc(torneoRef); // CORREGIDO AQUÍ
       if (!torneoSnap.exists()) {
         setMensaje('Torneo no existe');
         return;
