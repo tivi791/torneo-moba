@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { db, auth } from '../firebase';
-import { collection, query, where, getDocs, updateDoc, arrayUnion, doc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 
-function TorneosDisponibles() {
+export default function TorneosDisponibles({ equipoId }) {
   const [torneos, setTorneos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [mensaje, setMensaje] = useState('');
@@ -12,60 +12,55 @@ function TorneosDisponibles() {
       setCargando(true);
       try {
         const torneosCol = collection(db, 'torneos');
-        const q = query(torneosCol, where('estado', '==', 'activo'));
-        const torneosSnapshot = await getDocs(q);
-        const lista = torneosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setTorneos(lista);
+        const torneosSnap = await getDocs(torneosCol);
+        const activos = torneosSnap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(t => t.estado === 'activo');
+        setTorneos(activos);
       } catch (error) {
-        setMensaje('Error al cargar torneos: ' + error.message);
+        setMensaje('Error cargando torneos: ' + error.message);
       }
       setCargando(false);
     }
     cargarTorneos();
   }, []);
 
-  const inscribirUsuario = async (torneoId) => {
+  const inscribirEquipo = async (torneoId) => {
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        setMensaje('Debes iniciar sesión para inscribirte.');
+      const torneoRef = doc(db, 'torneos', torneoId);
+      const torneoSnap = await torneoRef.get();
+      if (!torneoSnap.exists()) {
+        setMensaje('Torneo no existe');
         return;
       }
-
-      const torneoRef = doc(db, 'torneos', torneoId);
-      // Agregamos el UID del usuario en un array "inscritos" (si no existe, se crea)
-      await updateDoc(torneoRef, {
-        inscritos: arrayUnion(user.uid)
-      });
-
-      setMensaje('Te has inscrito correctamente en el torneo.');
+      const inscritos = torneoSnap.data().inscritos || [];
+      if (inscritos.includes(equipoId)) {
+        setMensaje('Ya estás inscrito en este torneo');
+        return;
+      }
+      const nuevosInscritos = [...inscritos, equipoId];
+      await updateDoc(torneoRef, { inscritos: nuevosInscritos });
+      setMensaje('Inscripción exitosa');
     } catch (error) {
       setMensaje('Error al inscribirse: ' + error.message);
     }
   };
 
-  if (cargando) return <p>Cargando torneos disponibles...</p>;
+  if (cargando) return <p>Cargando torneos...</p>;
 
   return (
     <div>
-      <h3>Torneos Disponibles</h3>
+      <h3>Torneos disponibles para inscripción</h3>
       {mensaje && <p>{mensaje}</p>}
-      {torneos.length === 0 ? (
-        <p>No hay torneos activos disponibles.</p>
-      ) : (
-        torneos.map(torneo => (
-          <div key={torneo.id} style={{ border: '1px solid #ccc', marginBottom: '10px', padding: '10px' }}>
-            <h4>{torneo.nombre}</h4>
-            <p><strong>Equipos participantes:</strong> {torneo.equipos.length}</p>
-            <button onClick={() => inscribirUsuario(torneo.id)}>Inscribirme</button>
-            <p>
-              <strong>Usuarios inscritos:</strong> {torneo.inscritos ? torneo.inscritos.length : 0}
-            </p>
-          </div>
-        ))
-      )}
+      {torneos.length === 0 && <p>No hay torneos activos.</p>}
+      <ul>
+        {torneos.map(torneo => (
+          <li key={torneo.id}>
+            <strong>{torneo.nombre}</strong> ({torneo.modalidad}){' '}
+            <button onClick={() => inscribirEquipo(torneo.id)}>Inscribirse</button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
-
-export default TorneosDisponibles;
