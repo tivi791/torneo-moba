@@ -38,35 +38,52 @@ function CrearEquipo() {
   }, []);
 
   const agregarJugador = async (e) => {
-    e.preventDefault();
-    const user = auth.currentUser;
-    if (!user || !equipoExistente) return;
+  e.preventDefault();
+  const user = auth.currentUser;
+  if (!user || !equipoExistente) return;
 
-    try {
-      const equipoRef = doc(db, 'equipos', equipoExistente.id);
+  const jugadoresActuales = equipoExistente.jugadores || [];
 
-      const jugadoresActuales = equipoExistente.jugadores || [];
-      const nuevoJugador = {
-        nickname: nombreJugador,
-        uid: user.uid, // opcional, puedes usar solo nickname
-      };
+  // 🔴 Validar máximo 7 jugadores
+  if (jugadoresActuales.length >= 7) {
+    setMensaje('⚠️ Tu equipo ya tiene 7 jugadores. No puedes agregar más.');
+    return;
+  }
 
-      await updateDoc(equipoRef, {
-        jugadores: [...jugadoresActuales, nuevoJugador],
-      });
+  // 🔴 Validar duplicados
+  const yaExiste = jugadoresActuales.some(
+    (j) => j.nickname.toLowerCase() === nombreJugador.toLowerCase()
+  );
+  if (yaExiste) {
+    setMensaje('⚠️ Ese nickname ya fue agregado.');
+    return;
+  }
 
-      setEquipoExistente((prev) => ({
-        ...prev,
-        jugadores: [...jugadoresActuales, nuevoJugador],
-      }));
+  try {
+    const equipoRef = doc(db, 'equipos', equipoExistente.id);
 
-      setNombreJugador('');
-      setMensaje('✅ Jugador agregado correctamente.');
-    } catch (error) {
-      console.error('Error al agregar jugador:', error);
-      setMensaje('❌ Error al agregar jugador.');
-    }
-  };
+    const nuevoJugador = {
+      nickname: nombreJugador,
+      uid: user.uid, // opcional, puedes quitar si no es necesario
+    };
+
+    await updateDoc(equipoRef, {
+      jugadores: [...jugadoresActuales, nuevoJugador],
+    });
+
+    setEquipoExistente((prev) => ({
+      ...prev,
+      jugadores: [...jugadoresActuales, nuevoJugador],
+    }));
+
+    setNombreJugador('');
+    setMensaje('✅ Jugador agregado correctamente.');
+  } catch (error) {
+    console.error('Error al agregar jugador:', error);
+    setMensaje('❌ Error al agregar jugador.');
+  }
+};
+
 
   if (cargando) return <p>Cargando...</p>;
 
