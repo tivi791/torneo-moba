@@ -5,8 +5,6 @@ import { doc, getDoc } from 'firebase/firestore';
 
 import CrearEquipo from './components/CrearEquipo';
 import AdminPanel from './components/AdminPanel';
-import ListaEquipos from './components/ListaEquipos';
-import VistaEquipos from './components/VistaEquipos';
 import LoginRegistro from './components/LoginRegistro';
 
 function App() {
@@ -51,19 +49,10 @@ function App() {
           <p>Bienvenido: <strong>{usuario.email}</strong> ({usuario.role})</p>
           <button onClick={() => signOut(auth)}>Cerrar sesión</button>
           <hr />
-
-          {usuario.role === "admin" ? (
-            <>
-              <AdminPanel />
-              <CrearEquipo />
-              <ListaEquipos />
-            </>
-          ) : (
-            <>
-              <CrearEquipo />
-              <VistaEquipos />
-            </>
+          {usuario.role === "admin" && (
+            <AdminPanel />
           )}
+          <CrearEquipo />
         </>
       ) : (
         <LoginRegistro />
