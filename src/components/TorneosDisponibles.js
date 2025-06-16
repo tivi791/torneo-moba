@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
 
 export default function TorneosDisponibles({ equipoId }) {
   const [torneos, setTorneos] = useState([]);
@@ -28,7 +28,8 @@ export default function TorneosDisponibles({ equipoId }) {
   const inscribirEquipo = async (torneoId) => {
     try {
       const torneoRef = doc(db, 'torneos', torneoId);
-      const torneoSnap = await torneoRef.get();
+      const torneoSnap = await getDoc(torneoRef);  // <--- CORRECCIÓN
+
       if (!torneoSnap.exists()) {
         setMensaje('Torneo no existe');
         return;
