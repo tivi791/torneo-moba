@@ -1,84 +1,49 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
-function CrearTorneo() {
+export default function CrearTorneo() {
   const [nombre, setNombre] = useState('');
-  const [equipos, setEquipos] = useState([]);
-  const [equiposSeleccionados, setEquiposSeleccionados] = useState([]);
+  const [modalidad, setModalidad] = useState('');
   const [mensaje, setMensaje] = useState('');
 
-  useEffect(() => {
-    async function cargarEquipos() {
-      try {
-        const equiposCol = collection(db, 'equipos');
-        const equiposSnapshot = await getDocs(equiposCol);
-        const lista = equiposSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setEquipos(lista);
-      } catch (error) {
-        setMensaje('Error cargando equipos: ' + error.message);
-      }
+  const crearTorneo = async () => {
+    if (!nombre || !modalidad) {
+      setMensaje('Completa todos los campos');
+      return;
     }
-    cargarEquipos();
-  }, []);
-
-  const toggleEquipo = (id) => {
-    if (equiposSeleccionados.includes(id)) {
-      setEquiposSeleccionados(equiposSeleccionados.filter(e => e !== id));
-    } else {
-      setEquiposSeleccionados([...equiposSeleccionados, id]);
-    }
-  };
-
-  const crearTorneo = async (e) => {
-    e.preventDefault();
-    if (nombre.trim() === '') return setMensaje('Por favor ingresa un nombre para el torneo');
-    if (equiposSeleccionados.length < 2) return setMensaje('Selecciona al menos 2 equipos');
-
     try {
       await addDoc(collection(db, 'torneos'), {
-        nombre: nombre.trim(),
-        creadoEn: Timestamp.now(),
-        equipos: equiposSeleccionados,
+        nombre,
+        modalidad,
         estado: 'activo',
+        equipos: [],
+        inscritos: [],
+        creadoEn: serverTimestamp()
       });
-      setNombre('');
-      setEquiposSeleccionados([]);
       setMensaje('Torneo creado con éxito');
+      setNombre('');
+      setModalidad('');
     } catch (error) {
-      setMensaje('Error al crear torneo: ' + error.message);
+      setMensaje('Error: ' + error.message);
     }
   };
 
   return (
     <div>
       <h3>Crear Torneo</h3>
-      <form onSubmit={crearTorneo}>
-        <input
-          type="text"
-          placeholder="Nombre del torneo"
-          value={nombre}
-          onChange={e => setNombre(e.target.value)}
-          required
-        />
-        <div style={{ marginTop: '10px' }}>
-          <h4>Selecciona equipos participantes</h4>
-          {equipos.map(e => (
-            <label key={e.id} style={{ display: 'block' }}>
-              <input
-                type="checkbox"
-                checked={equiposSeleccionados.includes(e.id)}
-                onChange={() => toggleEquipo(e.id)}
-              />
-              {e.nombre}
-            </label>
-          ))}
-        </div>
-        <button type="submit" style={{ marginTop: '10px' }}>Crear Torneo</button>
-      </form>
+      <input
+        placeholder="Nombre del torneo"
+        value={nombre}
+        onChange={e => setNombre(e.target.value)}
+      />
+      <input
+        placeholder="Modalidad (ej. 1 vs 1)"
+        value={modalidad}
+        onChange={e => setModalidad(e.target.value)}
+      />
+      <button onClick={crearTorneo}>Crear Torneo</button>
       {mensaje && <p>{mensaje}</p>}
     </div>
   );
 }
-
-export default CrearTorneo;
