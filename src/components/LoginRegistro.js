@@ -17,7 +17,7 @@ function LoginRegistro() {
       if (modo === 'registro') {
         const userCred = await createUserWithEmailAndPassword(auth, email, password);
 
-        // Guardar en Firestore el rol
+        // Guardar rol usuario en Firestore
         await setDoc(doc(db, 'users', userCred.user.uid), {
           email: userCred.user.email,
           role: 'usuario',
