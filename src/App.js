@@ -1,39 +1,53 @@
 import React, { useEffect, useState } from 'react';
-import { auth } from './firebase';
+import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 import CrearEquipo from './components/CrearEquipo';
-import Login from './components/Login';
-import Register from './components/Register';
+import AdminPanel from './components/AdminPanel'; // crea este componente luego
+import LoginRegistro from './components/LoginRegistro'; // también crea este luego
 
 function App() {
   const [usuario, setUsuario] = useState(null);
+  const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUsuario(user);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Traer datos del rol desde Firestore
+        const docRef = doc(db, "users", user.uid);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          setUsuario({ ...user, role: docSnap.data().role });
+        } else {
+          // Si no existe documento, rol por defecto
+          setUsuario({ ...user, role: "usuario" });
+        }
+      } else {
+        setUsuario(null);
+      }
+      setCargando(false);
     });
 
-    // Limpia el observer cuando se desmonte el componente
     return () => unsubscribe();
   }, []);
 
+  if (cargando) return <p>Cargando...</p>;
+
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial', maxWidth: '600px', margin: 'auto' }}>
+    <div style={{ padding: 20, fontFamily: 'Arial' }}>
       <h1>Plataforma de Torneos MOBA</h1>
 
       {usuario ? (
         <>
-          <p>Bienvenido: <strong>{usuario.email}</strong></p>
+          <p>Bienvenido: <strong>{usuario.email}</strong> ({usuario.role})</p>
           <button onClick={() => signOut(auth)}>Cerrar sesión</button>
           <hr />
-          <CrearEquipo />
+          {usuario.role === "admin" ? <AdminPanel /> : <CrearEquipo />}
         </>
       ) : (
-        <>
-          <Login />
-          <Register />
-        </>
+        <LoginRegistro />
       )}
     </div>
   );
