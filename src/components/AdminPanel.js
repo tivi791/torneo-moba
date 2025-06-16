@@ -1,59 +1,56 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import CrearTorneo from './CrearTorneo'; // Importa el componente
+import { collection, getDocs, orderBy } from 'firebase/firestore';
+import CrearTorneo from './CrearTorneo';
+import SeleccionarEquiposTorneo from './SeleccionarEquiposTorneo';
 
-function AdminPanel() {
-  const [equipos, setEquipos] = useState([]);
+export default function AdminPanel() {
+  const [torneos, setTorneos] = useState([]);
+  const [torneoSeleccionado, setTorneoSeleccionado] = useState(null);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    async function fetchEquipos() {
+    async function cargarTorneos() {
       setCargando(true);
       try {
-        const q = query(collection(db, 'equipos'), orderBy('creadoEn', 'desc'));
-        const querySnapshot = await getDocs(q);
-        const listaEquipos = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setEquipos(listaEquipos);
+        const torneosCol = collection(db, 'torneos');
+        const torneosSnap = await getDocs(torneosCol);
+        const lista = torneosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setTorneos(lista);
       } catch (error) {
-        console.error("Error al cargar equipos:", error);
+        console.error(error);
       }
       setCargando(false);
     }
-
-    fetchEquipos();
+    cargarTorneos();
   }, []);
-
-  if (cargando) return <p>Cargando equipos...</p>;
 
   return (
     <div>
       <h2>Panel de Administración</h2>
 
-      <CrearTorneo /> {/* Aquí mostramos el formulario para crear torneos */}
+      <CrearTorneo />
 
-      <p>Aquí podrás ver todos los equipos registrados:</p>
-      {equipos.length === 0 ? (
-        <p>No hay equipos registrados aún.</p>
+      <h3>Torneos creados</h3>
+      {cargando ? (
+        <p>Cargando torneos...</p>
+      ) : torneos.length === 0 ? (
+        <p>No hay torneos creados aún.</p>
       ) : (
-        equipos.map((equipo) => (
-          <div key={equipo.id} style={{ border: '1px solid #ccc', marginBottom: '15px', padding: '10px' }}>
-            <h3>{equipo.nombre}</h3>
-            <p><strong>Capitán:</strong> {equipo.capitan}</p>
-            <p><strong>Jugadores:</strong></p>
-            <ul>
-              {(equipo.jugadores || []).map((jugador, index) => (
-                <li key={index}>{jugador.nickname}</li>
-              ))}
-            </ul>
-          </div>
-        ))
+        <ul>
+          {torneos.map(torneo => (
+            <li key={torneo.id}>
+              <button onClick={() => setTorneoSeleccionado(torneo.id)}>
+                {torneo.nombre} ({torneo.modalidad})
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {torneoSeleccionado && (
+        <SeleccionarEquiposTorneo torneoId={torneoSeleccionado} />
       )}
     </div>
   );
 }
-
-export default AdminPanel;
