@@ -29,39 +29,36 @@ function AdminPanel() {
   if (cargando) return <p>Cargando equipos...</p>;
 
   return (
-    <div>
-      <h2>Panel de Administración</h2>
-      <h3>Equipos registrados</h3>
-      {equipos.length === 0 ? (
-        <p>No hay equipos registrados aún.</p>
-      ) : (
-        <table border="1" cellPadding="8" style={{ borderCollapse: 'collapse', width: '100%' }}>
-          <thead>
-            <tr>
-              <th>Nombre del Equipo</th>
-              <th>Jugadores (Emails)</th>
-              <th>Registrado el</th>
-            </tr>
-          </thead>
-          <tbody>
-            {equipos.map(equipo => (
-              <tr key={equipo.id}>
-                <td>{equipo.nombre}</td>
-                <td>
-                  <ul style={{ paddingLeft: '20px', margin: 0 }}>
-                    {equipo.jugadores.map((jugador, i) => (
-                      <li key={i}>{jugador}</li>
-                    ))}
-                  </ul>
-                </td>
-                <td>{equipo.creadoEn?.toDate().toLocaleString() || 'Sin fecha'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
+  <div style={{ padding: '20px', fontFamily: 'Arial' }}>
+    <h1>Plataforma de Torneos MOBA</h1>
+
+    {usuario ? (
+      <>
+        <p>Bienvenido: <strong>{usuario.email}</strong> ({usuario.role})</p>
+        <button onClick={() => signOut(auth)}>Cerrar sesión</button>
+        <hr />
+        
+        {usuario.role === "admin" && (
+          <div>
+            <AdminPanel />
+            <CrearEquipo />
+            <ListaEquipos />
+            <hr />
+          </div>
+        )}
+
+        {usuario.role !== "admin" && (
+          <>
+            <CrearEquipo />
+          </>
+        )}
+      </>
+    ) : (
+      <LoginRegistro />
+    )}
+  </div>
+);
+
 }
 
 export default AdminPanel;
