@@ -1,75 +1,77 @@
 import React, { useState } from 'react';
-import { auth, db } from '../firebase';
-import { collection, addDoc, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { db, auth } from '../firebase';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 
 function CrearEquipo() {
-  const [nombre, setNombre] = useState('');
+  const [nombreEquipo, setNombreEquipo] = useState('');
+  const [jugadores, setJugadores] = useState([{ nickname: '', uid: '' }]);
   const [mensaje, setMensaje] = useState('');
-  const [cargando, setCargando] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const agregarJugador = () => {
+    setJugadores([...jugadores, { nickname: '', uid: '' }]);
+  };
+
+  const actualizarJugador = (index, campo, valor) => {
+    const nuevosJugadores = [...jugadores];
+    nuevosJugadores[index][campo] = valor;
+    setJugadores(nuevosJugadores);
+  };
+
+  const enviar = async (e) => {
     e.preventDefault();
-    setMensaje('');
-    
-    if (!nombre.trim()) {
-      setMensaje('⚠️ El nombre del equipo no puede estar vacío.');
-      return;
-    }
+    const user = auth.currentUser;
 
     try {
-      setCargando(true);
-      // Verificar si ya existe un equipo con el mismo nombre
-      const q = query(collection(db, 'equipos'), where('nombre', '==', nombre));
-      const snapshot = await getDocs(q);
-
-      if (!snapshot.empty) {
-        setMensaje('❌ Ya existe un equipo con ese nombre.');
-        setCargando(false);
-        return;
-      }
-
-      // Guardar el nuevo equipo
-      const user = auth.currentUser;
       await addDoc(collection(db, 'equipos'), {
-        nombre,
+        nombre: nombreEquipo,
         creadoPor: user.email,
-        uidCreador: user.uid,
-        creadoEn: Timestamp.now(),
-        jugadores: [], // puedes agregar lógica para añadir jugadores luego
+        jugadores: jugadores.filter(j => j.nickname.trim() !== ''),
+        creadoEn: Timestamp.now()
       });
-
-      setMensaje('✅ Equipo creado con éxito.');
-      setNombre('');
+      setMensaje('✅ Equipo creado correctamente');
+      setNombreEquipo('');
+      setJugadores([{ nickname: '', uid: '' }]);
     } catch (error) {
-      console.error('Error al crear equipo:', error);
-      setMensaje('❌ Error al crear equipo. Intenta de nuevo.');
-    } finally {
-      setCargando(false);
+      console.error("Error al guardar equipo:", error);
+      setMensaje('❌ Error al crear el equipo');
     }
   };
 
   return (
-    <div style={{ maxWidth: '400px', marginBottom: '30px' }}>
-      <h2>Crear Equipo</h2>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="Nombre del equipo"
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          required
-          style={{ width: '100%', padding: '10px', marginBottom: '10px' }}
-        />
-        <button
-          type="submit"
-          disabled={cargando}
-          style={{ width: '100%', padding: '10px' }}
-        >
-          {cargando ? 'Creando...' : 'Crear equipo'}
-        </button>
-      </form>
-      {mensaje && <p style={{ marginTop: '10px', color: mensaje.includes('✅') ? 'green' : 'red' }}>{mensaje}</p>}
-    </div>
+    <form onSubmit={enviar}>
+      <h3>Crear Equipo</h3>
+      <input
+        type="text"
+        placeholder="Nombre del equipo"
+        value={nombreEquipo}
+        onChange={(e) => setNombreEquipo(e.target.value)}
+        required
+      />
+
+      <h4>Jugadores</h4>
+      {jugadores.map((jugador, index) => (
+        <div key={index}>
+          <input
+            type="text"
+            placeholder={`Jugador ${index + 1} - Nickname`}
+            value={jugador.nickname}
+            onChange={(e) => actualizarJugador(index, 'nickname', e.target.value)}
+            required
+          />
+          <input
+            type="text"
+            placeholder="UID (opcional)"
+            value={jugador.uid}
+            onChange={(e) => actualizarJugador(index, 'uid', e.target.value)}
+          />
+        </div>
+      ))}
+
+      <button type="button" onClick={agregarJugador}>+ Agregar jugador</button>
+      <br />
+      <button type="submit">Registrar equipo</button>
+      {mensaje && <p>{mensaje}</p>}
+    </form>
   );
 }
 
