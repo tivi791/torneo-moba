@@ -1,15 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { db, auth } from '../firebase';
-import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  doc,
+} from 'firebase/firestore';
 
 function CrearEquipo() {
-  const [nombreEquipo, setNombreEquipo] = useState('');
-  const [mensaje, setMensaje] = useState('');
-  const [yaRegistrado, setYaRegistrado] = useState(false);
+  const [equipoExistente, setEquipoExistente] = useState(null);
   const [cargando, setCargando] = useState(true);
+  const [nombreJugador, setNombreJugador] = useState('');
+  const [mensaje, setMensaje] = useState('');
 
   useEffect(() => {
-    const verificarEquipoExistente = async () => {
+    const verificarEquipo = async () => {
       const user = auth.currentUser;
       if (!user) return;
 
@@ -17,42 +24,47 @@ function CrearEquipo() {
       const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
-        setYaRegistrado(true);
-        setMensaje('⚠️ Ya has registrado un equipo. No puedes crear otro.');
+        const docSnap = querySnapshot.docs[0];
+        setEquipoExistente({
+          id: docSnap.id,
+          ...docSnap.data(),
+        });
       }
 
       setCargando(false);
     };
 
-    verificarEquipoExistente();
+    verificarEquipo();
   }, []);
 
-  const crearEquipo = async (e) => {
+  const agregarJugador = async (e) => {
     e.preventDefault();
-
     const user = auth.currentUser;
-    if (!user) return;
-
-    if (yaRegistrado) {
-      setMensaje('⚠️ Ya tienes un equipo registrado.');
-      return;
-    }
+    if (!user || !equipoExistente) return;
 
     try {
-      await addDoc(collection(db, 'equipos'), {
-        nombre: nombreEquipo,
-        creadoPor: user.email,
-        creadoPorUID: user.uid,
-        creadoEn: new Date(),
-        jugadores: [], // puedes luego permitir agregar jugadores
+      const equipoRef = doc(db, 'equipos', equipoExistente.id);
+
+      const jugadoresActuales = equipoExistente.jugadores || [];
+      const nuevoJugador = {
+        nickname: nombreJugador,
+        uid: user.uid, // opcional, puedes usar solo nickname
+      };
+
+      await updateDoc(equipoRef, {
+        jugadores: [...jugadoresActuales, nuevoJugador],
       });
 
-      setMensaje('✅ Equipo creado exitosamente.');
-      setYaRegistrado(true);
-      setNombreEquipo('');
+      setEquipoExistente((prev) => ({
+        ...prev,
+        jugadores: [...jugadoresActuales, nuevoJugador],
+      }));
+
+      setNombreJugador('');
+      setMensaje('✅ Jugador agregado correctamente.');
     } catch (error) {
-      console.error('Error al crear equipo:', error);
-      setMensaje('❌ Error al crear el equipo.');
+      console.error('Error al agregar jugador:', error);
+      setMensaje('❌ Error al agregar jugador.');
     }
   };
 
@@ -60,21 +72,29 @@ function CrearEquipo() {
 
   return (
     <div>
-      <h3>Crear Equipo</h3>
-      {yaRegistrado ? (
-        <p>{mensaje}</p>
-      ) : (
-        <form onSubmit={crearEquipo}>
-          <input
-            type="text"
-            placeholder="Nombre del equipo"
-            value={nombreEquipo}
-            onChange={(e) => setNombreEquipo(e.target.value)}
-            required
-          />
-          <button type="submit">Registrar equipo</button>
+      {equipoExistente ? (
+        <>
+          <h3>Mi equipo: {equipoExistente.nombre}</h3>
+          <p><strong>Jugadores actuales:</strong></p>
+          <ul>
+            {(equipoExistente.jugadores || []).map((j, i) => (
+              <li key={i}>{j.nickname}</li>
+            ))}
+          </ul>
+          <form onSubmit={agregarJugador}>
+            <input
+              type="text"
+              placeholder="Nombre del jugador"
+              value={nombreJugador}
+              onChange={(e) => setNombreJugador(e.target.value)}
+              required
+            />
+            <button type="submit">Agregar jugador</button>
+          </form>
           {mensaje && <p>{mensaje}</p>}
-        </form>
+        </>
+      ) : (
+        <p>🔒 Solo puedes agregar jugadores si ya creaste un equipo.</p>
       )}
     </div>
   );
